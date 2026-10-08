@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Match</title>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --panel: #ffffff;
+    --text: #1f2430;
+    --muted: #6b7180;
+    --accent: #3b5bdb;
+    --card-back: #3b5bdb;
+    --card-back-2: #5c7cfa;
+    --card-front: #ffffff;
+    --match: #2f9e44;
+    --shadow: 0 4px 14px rgba(0,0,0,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171c;
+      --panel: #1f232b;
+      --text: #e9ecf1;
+      --muted: #9aa1ad;
+      --accent: #748ffc;
+      --card-back: #364fc7;
+      --card-back-2: #4c6ef5;
+      --card-front: #2a2f39;
+      --match: #51cf66;
+      --shadow: 0 4px 14px rgba(0,0,0,.4);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 40px;
+  }
+  h1 { margin: 0 0 4px; font-size: 2rem; letter-spacing: -.5px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  select, button {
+    font: inherit; padding: 8px 14px; border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--muted) 40%, transparent);
+    background: var(--panel); color: var(--text); cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+  button:hover { filter: brightness(1.05); }
+  .stats {
+    display: flex; gap: 22px; justify-content: center; margin-bottom: 20px;
+    background: var(--panel); padding: 10px 22px; border-radius: 12px; box-shadow: var(--shadow);
+  }
+  .stat { text-align: center; }
+  .stat .label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .stat .value { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .board {
+    display: grid; gap: 10px; width: 100%; max-width: 560px;
+    perspective: 900px;
+  }
+  .card {
+    position: relative; aspect-ratio: 1; cursor: pointer;
+    transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2,.7,.3,1);
+    border: none; padding: 0; background: none;
+  }
+  .card.flipped, .card.matched { transform: rotateY(180deg); }
+  .card.matched { cursor: default; }
+  .face {
+    position: absolute; inset: 0; border-radius: 12px; backface-visibility: hidden;
+    display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow);
+  }
+  .back {
+    background: linear-gradient(135deg, var(--card-back), var(--card-back-2));
+  }
+  .back::after {
+    content: "?"; color: rgba(255,255,255,.35); font-weight: 800; font-size: clamp(1.2rem, 5vw, 2rem);
+  }
+  .front {
+    background: var(--card-front); transform: rotateY(180deg);
+    font-size: clamp(1.6rem, 7vw, 2.8rem);
+  }
+  .card.matched .front { outline: 3px solid var(--match); animation: pop .4s ease; }
+  .card.shake .front { animation: shake .4s ease; }
+  @keyframes pop { 50% { transform: rotateY(180deg) scale(1.08); } }
+  @keyframes shake {
+    20%, 60% { transform: rotateY(180deg) translateX(-5px); }
+    40%, 80% { transform: rotateY(180deg) translateX(5px); }
+  }
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: none; align-items: center; justify-content: center; padding: 16px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--panel); border-radius: 16px; padding: 28px 32px; text-align: center;
+    box-shadow: var(--shadow); max-width: 360px; width: 100%;
+  }
+  .modal h2 { margin: 0 0 8px; font-size: 1.6rem; }
+  .modal p { margin: 6px 0; color: var(--muted); }
+  .modal .best { color: var(--accent); font-weight: 600; }
+  .modal button { margin-top: 16px; }
+</style>
+</head>
+<body>
+  <h1>Memory Match</h1>
+  <p class="sub">Flip two cards at a time. Find all the pairs!</p>
+
+  <div class="controls">
+    <label for="difficulty" style="color:var(--muted)">Board:</label>
+    <select id="difficulty">
+      <option value="4x3">Easy (6 pairs)</option>
+      <option value="4x4" selected>Medium (8 pairs)</option>
+      <option value="6x5">Hard (15 pairs)</option>
+      <option value="6x6">Expert (18 pairs)</option>
+    </select>
+    <select id="theme">
+      <option value="animals">Animals</option>
+      <option value="food">Food</option>
+      <option value="space">Space &amp; Nature</option>
+      <option value="sports">Sports</option>
+    </select>
+    <button class="primary" id="restart">New Game</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Moves</div><div class="value" id="moves">0</div></div>
+    <div class="stat"><div class="label">Pairs</div><div class="value" id="pairs">0/0</div></div>
+    <div class="stat"><div class="label">Time</div><div class="value" id="time">0:00</div></div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2>🎉 You did it!</h2>
+      <p id="result"></p>
+      <p class="best" id="best"></p>
+      <button class="primary" id="playAgain">Play Again</button>
+    </div>
+  </div>
+
+<script>
+  const THEMES = {
+    animals: ["🐶","🐱","🦊","🐼","🐨","🦁","🐸","🐵","🐧","🦉","🐙","🦋","🐢","🦄","🐝","🐬","🦒","🐘"],
+    food:    ["🍎","🍌","🍇","🍓","🍒","🍍","🥑","🌮","🍕","🍔","🍩","🍪","🧁","🍉","🥕","🌽","🍣","🥨"],
+    space:   ["🌙","⭐","☀️","🪐","☄️","🌈","⚡","❄️","🔥","🌊","🌋","🌵","🌻","🍁","🌸","🍄","🌍","🚀"],
+    sports:  ["⚽","🏀","🏈","⚾","🎾","🏐","🏉","🎱","🏓","🏸","🥊","⛳","🏹","🎳","🛹","⛷️","🏆","🥏"]
+  };
+
+  const boardEl = document.getElementById("board");
+  const movesEl = document.getElementById("moves");
+  const pairsEl = document.getElementById("pairs");
+  const timeEl = document.getElementById("time");
+  const overlay = document.getElementById("overlay");
+  const diffSel = document.getElementById("difficulty");
+  const themeSel = document.getElementById("theme");
+
+  let first = null, second = null, lock = false;
+  let moves = 0, matched = 0, totalPairs = 0;
+  let timer = null, seconds = 0, started = false;
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function fmt(s) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
+
+  function startTimer() {
+    started = true;
+    timer = setInterval(() => { seconds++; timeEl.textContent = fmt(seconds); }, 1000);
+  }
+
+  function updateStats() {
+    movesEl.textContent = moves;
+    pairsEl.textContent = `${matched}/${totalPairs}`;
+  }
+
+  function newGame() {
+    clearInterval(timer);
+    first = second = null; lock = false;
+    moves = matched = seconds = 0; started = false;
+    timeEl.textContent = "0:00";
+    overlay.classList.remove("show");
+
+    const [cols, rows] = diffSel.value.split("x").map(Number);
+    totalPairs = (cols * rows) / 2;
+    const symbols = shuffle([...THEMES[themeSel.value]]).slice(0, totalPairs);
+    const deck = shuffle([...symbols, ...symbols]);
+
+    boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    boardEl.innerHTML = "";
+    deck.forEach(sym => {
+      const card = document.createElement("button");
+      card.className = "card";
+      card.dataset.symbol = sym;
+      card.setAttribute("aria-label", "Hidden card");
+      card.innerHTML = `<div class="face back"></div><div class="face front">${sym}</div>`;
+      card.addEventListener("click", () => flip(card));
+      boardEl.appendChild(card);
+    });
+    updateStats();
+  }
+
+  function flip(card) {
+    if (lock || card === first || card.classList.contains("matched")) return;
+    if (!started) startTimer();
+
+    card.classList.add("flipped");
+    card.setAttribute("aria-label", card.dataset.symbol);
+
+    if (!first) { first = card; return; }
+    second = card;
+    moves++;
+    updateStats();
+    check();
+  }
+
+  function check() {
+    if (first.dataset.symbol === second.dataset.symbol) {
+      first.classList.add("matched");
+      second.classList.add("matched");
+      matched++;
+      updateStats();
+      first = second = null;
+      if (matched === totalPairs) setTimeout(win, 500);
+    } else {
+      lock = true;
+      setTimeout(() => {
+        first.classList.add("shake"); second.classList.add("shake");
+      }, 350);
+      setTimeout(() => {
+        [first, second].forEach(c => {
+          c.classList.remove("flipped", "shake");
+          c.setAttribute("aria-label", "Hidden card");
+        });
+        first = second = null; lock = false;
+      }, 950);
+    }
+  }
+
+  function win() {
+    clearInterval(timer);
+    const key = "memory-best-" + diffSel.value;
+    let best = null;
+    try { best = JSON.parse(localStorage.getItem(key)); } catch (e) {}
+    let isNew = false;
+    if (!best || moves < best.moves || (moves === best.moves && seconds < best.seconds)) {
+      best = { moves, seconds }; isNew = true;
+      try { localStorage.setItem(key, JSON.stringify(best)); } catch (e) {}
+    }
+    document.getElementById("result").textContent =
+      `${totalPairs} pairs in ${moves} moves and ${fmt(seconds)}.`;
+    document.getElementById("best").textContent = isNew
+      ? "★ New best score for this board!"
+      : `Best: ${best.moves} moves, ${fmt(best.seconds)}`;
+    overlay.classList.add("show");
+  }
+
+  document.getElementById("restart").addEventListener("click", newGame);
+  document.getElementById("playAgain").addEventListener("click", newGame);
+  diffSel.addEventListener("change", newGame);
+  themeSel.addEventListener("change", newGame);
+
+  newGame();
+</script>
+</body>
+</html>
