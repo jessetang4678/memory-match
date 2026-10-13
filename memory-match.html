@@ -65,19 +65,20 @@
   .stat .value { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .board {
     display: grid; gap: 10px; width: 100%; max-width: 560px;
-    perspective: 900px;
   }
   .card {
     position: relative; aspect-ratio: 1; cursor: pointer;
-    transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2,.7,.3,1);
     border: none; padding: 0; background: none;
   }
-  .card.flipped, .card.matched { transform: rotateY(180deg); }
   .card.matched { cursor: default; }
   .face {
-    position: absolute; inset: 0; border-radius: 12px; backface-visibility: hidden;
+    position: absolute; inset: 0; border-radius: 12px;
     display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow);
   }
+  /* Simple flip: show the back by default, swap to the front when flipped or matched. */
+  .card .front { display: none; }
+  .card.flipped .front, .card.matched .front { display: flex; }
+  .card.flipped .back, .card.matched .back { display: none; }
   .back {
     background: linear-gradient(135deg, var(--card-back), var(--card-back-2));
   }
@@ -85,15 +86,15 @@
     content: "?"; color: rgba(255,255,255,.35); font-weight: 800; font-size: clamp(1.2rem, 5vw, 2rem);
   }
   .front {
-    background: var(--card-front); transform: rotateY(180deg);
+    background: var(--card-front);
     font-size: clamp(1.6rem, 7vw, 2.8rem);
   }
   .card.matched .front { outline: 3px solid var(--match); animation: pop .4s ease; }
   .card.shake .front { animation: shake .4s ease; }
-  @keyframes pop { 50% { transform: rotateY(180deg) scale(1.08); } }
+  @keyframes pop { 50% { transform: scale(1.08); } }
   @keyframes shake {
-    20%, 60% { transform: rotateY(180deg) translateX(-5px); }
-    40%, 80% { transform: rotateY(180deg) translateX(5px); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
   }
   .overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.5);
@@ -238,16 +239,17 @@
       if (matched === totalPairs) setTimeout(win, 500);
     } else {
       lock = true;
+      // Leave both cards face-up long enough for the player to see the second one.
       setTimeout(() => {
         first.classList.add("shake"); second.classList.add("shake");
-      }, 350);
+      }, 400);
       setTimeout(() => {
         [first, second].forEach(c => {
           c.classList.remove("flipped", "shake");
           c.setAttribute("aria-label", "Hidden card");
         });
         first = second = null; lock = false;
-      }, 950);
+      }, 1400);
     }
   }
 
